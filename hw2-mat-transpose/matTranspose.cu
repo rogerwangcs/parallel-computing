@@ -1,6 +1,7 @@
 #include <stdio.h>
-#define N 1
+#define N 3
 #define M 4
+
 __host__ __device__ void printMat(int mat[N][M]) {
     int i, j;
     for (i = 0; i < N; i++) {
@@ -12,7 +13,8 @@ __host__ __device__ void printMat(int mat[N][M]) {
     printf("\n");
 }
 
-__host__ __device__ void printMatT(int mat[M][N]) {
+// failed to figure this out
+__host__ __device__ void printMat2(int mat[M][N]) {
     int i, j;
     for (i = 0; i < M; i++) {
         for (j = 0; j < N; j++) {
@@ -24,21 +26,17 @@ __host__ __device__ void printMatT(int mat[M][N]) {
 }
 
 __global__ void matTranspose(int (*pA)[M], int (*pB)[N]) {
-    printf("block id: %d, thread id: %d\n", blockIdx.x, threadIdx.x);
-    pB[blockIdx.x][threadIdx.x] = pA[threadIdx.x][blockIdx.x];
-    if (blockIdx.x == 0 && threadIdx.x == 0)
-        printMatT(pB);
+    // pB[blockIdx.x][threadIdx.x] = pA[threadIdx.x][blockIdx.x];  // <-- this caused the weird zeros
+    pB[threadIdx.x][blockIdx.x] = pA[blockIdx.x][threadIdx.x];  // <-- this is your fix
 }
 
 int main() {
     // Allocate memory for array on host
-    // int A[N][M] = {{1, 2, 3}, {5, 6, 7}, {9, 10, 11}};
-    int A[N][M] = {{1, 2, 3, 4}};
-    int B[M][N] = {{100}, {100}, {100}, {100}};
+    int A[N][M] = {{1, 2, 3, 4}, {5, 6, 7, 8}, {9, 10, 11, 12}};
+    int B[M][N];
 
     printf("Matrix:\n");
     printMat(A);
-    printMatT(B);
 
     int(*pA)[M], (*pB)[N];
 
@@ -60,7 +58,7 @@ int main() {
     cudaFree(pB);
 
     printf("Transposed:\n");
-    printMatT(B);
+    printMat2(B);
 
     return 0;
 }
