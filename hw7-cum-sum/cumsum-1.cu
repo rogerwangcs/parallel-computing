@@ -97,7 +97,7 @@ int main() {
         printf(" %d ", h_part_cum[i]);
     }
 
-    printf("\n-----\n");
+    printf("\n--xd---\n");
     for (int i = 0; i < (num_blocks / (2 * num_threads_per_block)); i++) {
         printf(" %d ", h_part_part_cum[i]);
     }
@@ -107,6 +107,13 @@ int main() {
     fixcumsum<<<(num_blocks / (num_threads_per_block)), num_threads_per_block>>>(d_part_cum, d_part_part_cum, 2 * num_threads_per_block, num_blocks);
 
     fixcumsum<<<(n / (num_threads_per_block)), num_threads_per_block>>>(d_v, d_part_cum, 2 * num_threads_per_block, n);
+
+    cudaMemcpy(h_v, d_v, n * sizeof(int), cudaMemcpyDeviceToHost);
+
+    printf("\n--xd---\n");
+    for (int i = 0; i < n; i++) {
+        printf(" %d ", h_v[i]);
+    }
 
     return 0;
 }

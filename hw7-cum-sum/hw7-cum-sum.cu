@@ -1,8 +1,16 @@
+// Author: Roger Wang
+
 #include <stdio.h>
 #include "../timerc.h"
 
-__host__ __device__ void arrHeadTail(int *arr, int n, char *name) {
-    int max = 20;
+void initArr(int *arr, int n) {
+    for (int i = 0; i < n; i++) {
+        arr[i] = 1;
+    }
+}
+
+__host__ __device__ void arrHeadTail(int *arr, int n, const char *name) {
+    int max = 10;
     if (n < max) {
         max = n;
     }
@@ -17,7 +25,7 @@ __host__ __device__ void arrHeadTail(int *arr, int n, char *name) {
     printf("\n");
 }
 
-__global__ void cumulative_sum(int *in, int *partcum, int size) {
+__global__ void cumulative_sum(int *in, int *pc1, int size) {
     int *local_block_ix = in + blockIdx.x * 2 * blockDim.x;
     int local_ix = threadIdx.x;
 
@@ -38,16 +46,16 @@ __global__ void cumulative_sum(int *in, int *partcum, int size) {
         __syncthreads();
     }
 
-    if (local_ix == 0 && partcum != NULL) {
-        partcum[blockIdx.x] = local_block_ix[2 * blockDim.x - 1];
+    if (local_ix == 0 && pc1 != NULL) {
+        pc1[blockIdx.x] = local_block_ix[2 * blockDim.x - 1];
     }
 }
 
-__global__ void fixcumsum(int *block_cum_sum, int *small_part_cum, int size_small_part, int size) {
+__global__ void fixcumsum(int *pc1, int *pc2, int pc2_size, int size) {
     int ix = threadIdx.x + blockDim.x * blockIdx.x;
 
-    if (ix >= size_small_part) {
-        block_cum_sum[threadIdx.x] = block_cum_sum[threadIdx.x] + small_part_cum[-1 + ix / size_small_part];
+    if (ix >= pc2_size) {
+        pc1[ix] = pc1[ix] + pc2[-1 + ix / pc2_size];
     }
 }
 
@@ -56,43 +64,59 @@ int main() {
     printf("==================\n");
 
     // Initialize
-    int n = 4 * 6;  // 24
-    int num_threads = 6;
-    int num_blocks = n / (2 * num_threads);  // 2
-    // int num_blocks = n / (2 * num_threads);
+    int n = 64 * 1024 * 1024;
+    int num_threads = 1024;
+    int num_blocks = n / (2 * num_threads);
 
+    float cpu_time, gpu_time1, gpu_time2;
+
+    // Initialize array
     int *h_v = (int *)malloc(n * sizeof(int));
-    for (int i = 0; i < n; i++) {
-        h_v[i] = 1;
-    }
+    initArr(h_v, n);
+    arrHeadTail(h_v, n, "h_v");
 
     // CPU Cum Sum
     int *h_c_v = (int *)malloc(n * sizeof(int));
-    float cpu_time;
     cstart();
     h_c_v[0] = h_v[0];
     for (int i = 1; i < n; i++) {
         h_c_v[i] = h_c_v[i - 1] + h_v[i];
     }
+    arrHeadTail(h_c_v, n, "h_c_v");
     cend(&cpu_time);
-    printf("CPU cum sum: %f\n", cpu_time);
+    printf("CPU cum sum time: %f\n", cpu_time);
     printf("========================= \n");
     // CPU Cum Sum
 
     // GPU Cum Sum ----------------------------------------------
+    initArr(h_v, n);
+    arrHeadTail(h_v, n, "h_v");
+
+    gstart();
+    // allocate cuda memory
     int *d_v, *d_pc1, *d_pc2;
     cudaMalloc((void **)&d_v, n * sizeof(int));
     cudaMalloc((void **)&d_pc1, (num_blocks * sizeof(int)));
     cudaMalloc((void **)&d_pc2, (num_blocks / (2 * num_threads) * sizeof(int)));
 
+    // run first pass of cum sum to get partial sum 1 (pc1)
     cudaMemcpy(d_v, h_v, n * sizeof(int), cudaMemcpyHostToDevice);
     cumulative_sum<<<num_blocks, num_threads>>>(d_v, d_pc1, n);
     cudaMemcpy(h_v, d_v, n * sizeof(int), cudaMemcpyDeviceToHost);
+    arrHeadTail(h_v, 4 * num_threads, "h_v");
 
-    arrHeadTail(h_v, 4 * num_threads, "h_pc1");
+    // get array of last element of each partial sum block
+    int *h_pc1 = (int *)malloc(num_blocks * sizeof(int));
+    cudaMemcpy(h_pc1, d_pc1, (num_blocks * sizeof(int)), cudaMemcpyDeviceToHost);
+    arrHeadTail(h_pc1, num_blocks, "h_pc1");
 
-    // int *h_pc = (int *)malloc(num_blocks * sizeof(int));
-    // cudaMemcpy(h_pc, d_pc1, (num_blocks * sizeof(int)), cudaMemcpyDeviceToHost);
+    // run second pass of cum sum to sum to pc2
+    cumulative_sum<<<num_blocks / (2 * num_threads), num_threads>>>(d_pc1, d_pc2, num_blocks);
+    int *h_pc2 = (int *)malloc((num_blocks / (2 * num_threads)) * sizeof(int));
+    cudaMemcpy(h_pc2, d_pc2, ((num_blocks / (2 * num_threads)) * sizeof(int)), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_pc1, d_pc1, (num_blocks * sizeof(int)), cudaMemcpyDeviceToHost);
+    arrHeadTail(h_pc2, num_blocks / (2 * num_threads), "h_pc2");
+    arrHeadTail(h_pc1, num_blocks, "h_pc1");
 
     cumulative_sum<<<1, (num_blocks / (2 * num_threads))>>>(d_pc2, NULL, num_blocks / (2 * num_threads));
 
@@ -100,10 +124,20 @@ int main() {
     fixcumsum<<<(n / (num_threads)), num_threads>>>(d_v, d_pc1, 2 * num_threads, n);
 
     cudaMemcpy(h_v, d_v, n * sizeof(int), cudaMemcpyDeviceToHost);
-    arrHeadTail(h_v, 4 * num_threads, "h_pc1");
+
+    gend(&gpu_time1);
+    arrHeadTail(h_v, n, "h_v");
+    printf("GPU cum sum time (with memcpy): %f\n", gpu_time1);
+    printf("========================= \n");
     // GPU Cum Sum ----------------------------------------------
 
+    cudaFree(d_v);
+    cudaFree(d_pc1);
+    cudaFree(d_pc2);
+    free(h_v);
     free(h_c_v);
+    free(h_pc1);
+    free(h_pc2);
 
     return 0;
 }
