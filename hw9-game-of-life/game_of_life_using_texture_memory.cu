@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "timerc.h"
+#include "../timerc.h"
 
 texture<int> tex_game_1;
 texture<int> tex_game_2;
@@ -457,6 +457,8 @@ int main() {
 
         textures2D_using_array_and_surface_play_game_gpu<<<numblocks, numthreadsperblock>>>(1, gamedim);
         textures2D_using_array_and_surface_play_game_gpu<<<numblocks, numthreadsperblock>>>(2, gamedim);
+
+        cudaDeviceSychronize();
     }
     gend(&gpu_time);
 
