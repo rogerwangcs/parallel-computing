@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------
- *    LU Decomposition
+ *    LU Decomposition Solver
  *    Finds LU Decomp of a 5x5 matrix
  *    Can used to solver linear system, get mat determinant
  *    and mat inverse.

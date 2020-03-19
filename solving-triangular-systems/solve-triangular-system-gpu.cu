@@ -4,7 +4,7 @@
 #include "../timerc.h"
 
 /*--------------------------------------------------------------
- *    Lower Triangular Matrix Inverse On CPU
+ *    Lower Triangular Matrix Inverse On GPU
  *    Returns the inverse of a lower triangular matrix recursively
  *
  *    Author: Roger Wang
@@ -72,14 +72,37 @@ void copyMat(double *newA, double *a, int idx, int size, int n) {
     }
 }
 
-void multMat(double *a, int idx_1, int idx_2, int size, int n, double *res) {
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < size; j++) {
-            res[i * size + j] = 0;
-            for (int k = 0; k < size; k++)
-                res[i * size + j] += a[idx_1 + i * n + k] * a[idx_2 + k * n + j];
-        }
+// device kernel function for multMat parallel
+__global__ void multMat_kernel(double *a, int idx_1, int idx_2, int size, int n, double *res) {
+    int i = blockIdx.x;
+    int j = threadIdx.x;
+    res[i * size + j] = 0.0;
+    for (int k = 0; k < size; k++) {
+        res[i * size + j] += a[idx_1 + i * n + k] * a[idx_2 + k * n + j];
     }
+    return;
+}
+
+// Parallel version
+void multMat(double *a, int idx_1, int idx_2, int size, int n, double *res) {
+    // device variables
+    double *a_d;
+    double *res_d;
+    cudaMalloc((void **)&a_d, size * size * sizeof(double));
+    cudaMalloc((void **)&res_d, size * size * sizeof(double));
+    cudaMemcpy(a_d, a, size * size * sizeof(double), cudaMemcpyHostToDevice);
+
+    // execute kernel
+    multMat_kernel<<<size, size>>>(a_d, idx_1, idx_2, size, n, res_d);
+    cudaDeviceSynchronize();
+
+    // copy and return calculations
+    cudaMemcpy(res, res_d, size * size * sizeof(double), cudaMemcpyDeviceToHost);
+
+    // free device memory
+    cudaFree(a_d);
+    cudaFree(res_d);
+    return;
 }
 
 void multMatVec(double *a, double *b, double *x, int n) {
@@ -110,7 +133,7 @@ void addNegative(double *a, int idx, int size, int n) {
 }
 
 // Base Case 2x2 Inplace inversion
-void invertTwoByTwo(double *a, int idx, int n) {
+__host__ __device__ void invertTwoByTwo(double *a, int idx, int n) {
     int idx0 = idx;
     int idx1 = idx + 1;
     int idx2 = idx + n;
@@ -145,20 +168,21 @@ void inverseRecurse(double *a, int idx, int size, int n) {
     inverseRecurse(a, a22_idx, size / 2, n);      // recurse on bottom right submatrix
 
     // Invert A21
+
     double *res = (double *)malloc(size * size * sizeof(double));
     multMat(a, a22_idx, a21_idx, size / 2, n, res);  // A22 * A21
     copyMat(res, a, a21_idx, size / 2, n);           // Put result into A21
     multMat(a, a21_idx, a11_idx, size / 2, n, res);  // A21 * A11
     copyMat(res, a, a21_idx, size / 2, n);           // Put result into A21
     addNegative(a, a21_idx, size / 2, n);            // Add negative sign to A21
-
     free(res);
+
     return;
 }
 
 int main() {
     float cpu_time;
-    int n = pow(2, 3);  // Matrix size: 2^x = n
+    int n = pow(2, 10);  // Matrix size: 2^x = n
     double *a, *a_old, *b, *b_old;
     double *x = (double *)malloc(n * sizeof(double));
     a = initMat(n);
@@ -166,26 +190,26 @@ int main() {
     b = initVec(n);
     b_old = initVec(n);
 
-    printMat(a, n, "Initial Matrix:");
+    // printMat(a, n, "Initial Matrix:");
     cstart();
     inverseRecurse(a, 0, n, n);
     cend(&cpu_time);
-    printf("CPU matrix inverse time: %f\n", cpu_time);
-    printMat(a, n, "Inverted Matrix:");
+    printf("GPU matrix inverse time: %f\n", cpu_time);
+    // printMat(a, n, "Inverted Matrix:");
 
     // Double check matrix inversion
     double *res = (double *)malloc(n * n * sizeof(double));
     checkInverse(a, a_old, res, n);
-    printMat(res, n, "A * A^-1 (should be identity mat):");
+    // printMat(res, n, "A * A^-1 (should be identity mat):");
     free(res);
 
     // Get Solution
     multMatVec(a, b, x, n);
-    printVec(b, n, "x: (Solution)");
+    // printVec(b, n, "x: (Solution)");
     // Check Solution
     multMatVec(a, x, b, n);
-    printVec(b, n, "b:");
-    printVec(b_old, n, "test_b: (should equal b)");
+    // printVec(b, n, "b:");
+    // printVec(b_old, n, "test_b: (should equal b)");
 
     free(x);
     free(a);

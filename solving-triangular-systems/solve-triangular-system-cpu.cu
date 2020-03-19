@@ -158,7 +158,7 @@ void inverseRecurse(double *a, int idx, int size, int n) {
 
 int main() {
     float cpu_time;
-    int n = pow(2, 3);  // Matrix size: 2^x = n
+    int n = pow(2, 12);  // Matrix size: 2^x = n
     double *a, *a_old, *b, *b_old;
     double *x = (double *)malloc(n * sizeof(double));
     a = initMat(n);
@@ -166,26 +166,26 @@ int main() {
     b = initVec(n);
     b_old = initVec(n);
 
-    printMat(a, n, "Initial Matrix:");
+    // printMat(a, n, "Initial Matrix:");
     cstart();
     inverseRecurse(a, 0, n, n);
     cend(&cpu_time);
     printf("CPU matrix inverse time: %f\n", cpu_time);
-    printMat(a, n, "Inverted Matrix:");
+    // printMat(a, n, "Inverted Matrix:");
 
     // Double check matrix inversion
     double *res = (double *)malloc(n * n * sizeof(double));
     checkInverse(a, a_old, res, n);
-    printMat(res, n, "A * A^-1 (should be identity mat):");
+    // printMat(res, n, "A * A^-1 (should be identity mat):");
     free(res);
 
     // Get Solution
     multMatVec(a, b, x, n);
-    printVec(b, n, "x: (Solution)");
+    // printVec(b, n, "x: (Solution)");
     // Check Solution
     multMatVec(a, x, b, n);
-    printVec(b, n, "b:");
-    printVec(b_old, n, "test_b: (should equal b)");
+    // printVec(b, n, "b:");
+    // printVec(b_old, n, "test_b: (should equal b)");
 
     free(x);
     free(a);
