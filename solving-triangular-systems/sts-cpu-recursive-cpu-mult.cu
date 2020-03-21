@@ -4,8 +4,9 @@
 #include "../timerc.h"
 
 /*--------------------------------------------------------------
- *    Lower Triangular Matrix Inverse On CPU
- *    Returns the inverse of a lower triangular matrix recursively
+ *    Lower Triangular Matrix Inverse
+ *    CPU RECURSION, CPU MAT MULT
+ *    Solves Lower Triangle System of Equations
  *
  *    Author: Roger Wang
  *-------------------------------------------------------------- */
@@ -158,7 +159,7 @@ void inverseRecurse(double *a, int idx, int size, int n) {
 
 int main() {
     float cpu_time;
-    int n = pow(2, 12);  // Matrix size: 2^x = n
+    int n = pow(2, 4);  // Matrix size: 2^x = n
     double *a, *a_old, *b, *b_old;
     double *x = (double *)malloc(n * sizeof(double));
     a = initMat(n);
@@ -176,7 +177,7 @@ int main() {
     // Double check matrix inversion
     double *res = (double *)malloc(n * n * sizeof(double));
     checkInverse(a, a_old, res, n);
-    // printMat(res, n, "A * A^-1 (should be identity mat):");
+    printMat(res, n, "A * A^-1 (should be identity mat):");
     free(res);
 
     // Get Solution
