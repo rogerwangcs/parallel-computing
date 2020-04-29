@@ -182,14 +182,15 @@ void invertBottomUp(double *a, int n) {
         for (int op_idx = 0; op_idx < total_ops; op_idx++) {
             int block_size = n / total_ops;
             int inv_idx = op_idx * ((n * n / total_ops) + block_size);
-            printf("Inv_idx: %d Block Size: %d\n", inv_idx, block_size);
+            // printf("Inv_idx: %d Block Size: %d\n", inv_idx, block_size);
             invertHelper(a, inv_idx, block_size, n);
         }
     }
 }
 
 int main() {
-    int n = pow(2, 4);  // Matrix size: 2^x = n
+    float cpu_time;
+    int n = pow(2, 13);  // Matrix size: 2^x = n
     double *a, *a_old, *b, *b_old;
     double *x = (double *)malloc(n * sizeof(double));
     a = initMat(n);
@@ -199,23 +200,25 @@ int main() {
 
     // printMat(a, n, "Initial Matrix:");
 
+    cstart();
     invertBottomUp(a, n);
-
+    cend(&cpu_time);
+    printf("Time: %f\n", cpu_time);
     // printMat(a, n, "Inverted Matrix:");
 
     // Double check matrix inversion
-    double *res = (double *)malloc(n * n * sizeof(double));
-    checkInverse(a, a_old, res, n);
-    printMat(res, n, "A * A^-1 (should be identity mat):");
-    free(res);
+    // double *res = (double *)malloc(n * n * sizeof(double));
+    // checkInverse(a, a_old, res, n);
+    // printMat(res, n, "A * A^-1 (should be identity mat):");
+    // free(res);
 
     // Get Solution
-    multMatVec(a, b, x, n);
-    printVec(b, n, "x: (Solution)");
+    // multMatVec(a, b, x, n);
+    // printVec(b, n, "x: (Solution)");
     // Check Solution
-    multMatVec(a, x, b, n);
-    printVec(b, n, "b:");
-    printVec(b_old, n, "test_b: (should equal b)");
+    // multMatVec(a, x, b, n);
+    // printVec(b, n, "b:");
+    // printVec(b_old, n, "test_b: (should equal b)");
 
     free(x);
     free(a);

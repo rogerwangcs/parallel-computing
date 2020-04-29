@@ -1,11 +1,12 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "../timerc.h"
 
 /*--------------------------------------------------------------
  *    Lower Triangular Matrix Inverse
- *    GPU Iterative, GPU MAT MULT
+ *    GPU Iterative, CPU MAT MULT
  *    Solves Lower Triangle System of Equations
 
  *    Execute: nvcc -arch=sm_35 -rdc=true sts-gpu-iterative-gpu-mult.cu --run
@@ -50,7 +51,7 @@ double *initMat(int n) {
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
             if (i >= j)
-                a[i * n + j] = i * n + j + 1;
+                a[i * n + j] = rand() / (double)RAND_MAX;
             else
                 a[i * n + j] = 0;
         }
@@ -61,12 +62,12 @@ double *initMat(int n) {
 double *initVec(int n) {
     double *b = (double *)malloc(n * sizeof(double));
     for (int i = 0; i < n; i++) {
-        b[i] = i;
+        b[i] = rand() / (double)RAND_MAX;
     }
     return b;
 }
 
-__device__ void copyMat(double *newA, double *a, int idx, int size, int n) {
+__host__ __device__ void copyMat(double *newA, double *a, int idx, int size, int n) {
     for (int i = 0; i < size; ++i) {
         for (int j = 0; j < size; ++j) {
             int local_idx = idx + i * n + j;
@@ -75,25 +76,25 @@ __device__ void copyMat(double *newA, double *a, int idx, int size, int n) {
     }
 }
 
-// device kernel function for multMat parallel
-__global__ void multMat_kernel(double *a, int idx_1, int idx_2, int size, int n, double *res) {
-    int i = blockIdx.x;
-    int j = threadIdx.x;
-    res[i * size + j] = 0.0;
-    for (int k = 0; k < size; k++) {
-        res[i * size + j] += a[idx_1 + i * n + k] * a[idx_2 + k * n + j];
+void copyVec(double *newB, double *b, int n) {
+    for (int i = 0; i < n; i++) {
+        newB[i] = b[i];
     }
-    return;
 }
 
 __device__ void multMat(double *a_d, int idx_1, int idx_2, int size, int n, double *res_d) {
-    // execute kernel
-    multMat_kernel<<<size, size>>>(a_d, idx_1, idx_2, size, n, res_d);
-    return;
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
+            res_d[i * size + j] = 0;
+            for (int k = 0; k < size; k++)
+                res_d[i * size + j] += a_d[idx_1 + i * n + k] * a_d[idx_2 + k * n + j];
+        }
+    }
 }
 
 void multMatVec(double *a, double *b, double *x, int n) {
     for (int i = 0; i < n; i++) {
+        x[i] = 0;
         for (int j = 0; j < n; j++) {
             x[i] += a[i * n + j] * b[j];
         }
@@ -180,13 +181,17 @@ void invertBottomUp(double *a_d, int n) {
 }
 
 int main() {
-    int n = pow(2, 8);  // Matrix size: 2^x = n
+    int n = pow(2, 10);  // Matrix size: 2^x = n
     double *a, *a_old, *b, *b_old;
     double *x = (double *)malloc(n * sizeof(double));
+
     a = initMat(n);
     a_old = initMat(n);
+    copyMat(a_old, a, 0, n, n);
+
     b = initVec(n);
     b_old = initVec(n);
+    copyVec(b_old, b, n);
 
     // printMat(a, n, "Initial Matrix:");
 
@@ -204,10 +209,9 @@ int main() {
     cudaMemcpy(a, a_d, n * n * sizeof(double), cudaMemcpyDeviceToHost);
     cend(&cpu_time2);
     cudaFree(a_d);
-    printf("GPU Iterative + GPU Mat Mult Time: %f\n", cpu_time + cpu_time2 + gpu_time);
+    printf("GPU Iterative + CPU Mat Mult Time: %f\n", cpu_time + cpu_time2 + gpu_time);
 
     // printMat(a, n, "Inverted Matrix:");
-
     // Double check matrix inversion
     // double *res = (double *)malloc(n * n * sizeof(double));
     // checkInverse(a, a_old, res, n);
@@ -215,12 +219,12 @@ int main() {
     // free(res);
 
     // Get Solution
-    // multMatVec(a, b, x, n);
-    // printVec(b, n, "x: (Solution)");
+    // multMatVec(a, b_old, x, n);
+    // printVec(x, n, "x: (Solution)");
     // Check Solution
-    // multMatVec(a, x, b, n);
-    // printVec(b, n, "b:");
-    // printVec(b_old, n, "test_b: (should equal b)");
+    // multMatVec(a_old, x, b, n);
+    // printVec(b_old, n, "original b:");
+    // printVec(b, n, "solved b:");
 
     free(x);
     free(a);
