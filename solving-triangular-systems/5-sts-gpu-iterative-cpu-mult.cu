@@ -9,7 +9,7 @@
  *    GPU Iterative, CPU MAT MULT
  *    Solves Lower Triangle System of Equations
 
- *    Execute: nvcc -arch=sm_35 -rdc=true sts-gpu-iterative-gpu-mult.cu --run
+ *    Execute: nvcc -arch=sm_35 -rdc=true sts-gpu-iterative-cpu-mult.cu --run
 
  *    Author: Roger Wang
  *-------------------------------------------------------------- */
@@ -181,9 +181,8 @@ void invertBottomUp(double *a_d, int n) {
 }
 
 int main() {
-    int n = pow(2, 10);  // Matrix size: 2^x = n
+    int n = pow(2, 2);  // Matrix size: 2^x = n
     double *a, *a_old, *b, *b_old;
-    double *x = (double *)malloc(n * sizeof(double));
 
     a = initMat(n);
     a_old = initMat(n);
@@ -211,20 +210,20 @@ int main() {
     cudaFree(a_d);
     printf("GPU Iterative + CPU Mat Mult Time: %f\n", cpu_time + cpu_time2 + gpu_time);
 
-    // printMat(a, n, "Inverted Matrix:");
-    // Double check matrix inversion
-    // double *res = (double *)malloc(n * n * sizeof(double));
-    // checkInverse(a, a_old, res, n);
-    // printMat(res, n, "A * A^-1 (should be identity mat):");
-    // free(res);
+    printMat(a, n, "Inverted Matrix:");
 
-    // Get Solution
-    // multMatVec(a, b_old, x, n);
-    // printVec(x, n, "x: (Solution)");
-    // Check Solution
-    // multMatVec(a_old, x, b, n);
-    // printVec(b_old, n, "original b:");
-    // printVec(b, n, "solved b:");
+    double *res = (double *)malloc(n * n * sizeof(double));
+    checkInverse(a, a_old, res, n);
+    printMat(res, n, "A * A^-1 (should be identity mat):");
+    free(res);
+
+    double *x = (double *)malloc(n * sizeof(double));
+    multMatVec(a, b_old, x, n);
+    printVec(x, n, "x: (Solution)");
+
+    multMatVec(a_old, x, b, n);
+    printVec(b_old, n, "original b:");
+    printVec(b, n, "solved b:");
 
     free(x);
     free(a);
