@@ -98,7 +98,7 @@ void multMatParallel(double *a, int idx_1, int idx_2, int size, int n, double *r
 }
 
 int main() {
-    int n = pow(2, 3);  // Matrix size: 2^x = n
+    int n = pow(2, 2);  // Matrix size: 2^x = n
 
     // host variables
     double *a, *a2, *res;
@@ -107,7 +107,7 @@ int main() {
     res = (double *)malloc(n * n * sizeof(double));
 
     printMat(a, n, "A:");
-    multMatParallel(a, 0, n / 2, n / 2, n, res);
+    multMatParallel(a, 0, 0, n / 2, n, res);
     printMat(res, n / 2, "Res:");
 
     free(a);

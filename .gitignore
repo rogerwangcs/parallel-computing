@@ -1,2 +1,4 @@
+*.out
+*.o
 *.zip
 ._.DS_Store

@@ -20,6 +20,7 @@ int checkIdentityMat(double *mat, int n) {
 }
 
 int checkB(double *b, double *solved_b, int n) {
+    if (n > 20) n = 20;
     for (int i = 0; i < n; i++) {
         if (!preciseValueCheck(b[i], solved_b[i])) {
             printf("ERROR: Solved b is NOT equal to the original b.\n");
@@ -46,7 +47,6 @@ void checkSolution(double *a_inv, double *a, double *b, int n, int debug) {
     if (debug) {
         printMat(res, n, "A * A^-1 (should be identity mat):");
     }
-    free(res);
 
     // Get Solution
     double *x = (double *)malloc(n * sizeof(double));

@@ -1,159 +1,19 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "../timerc.h"
+
+#include "check_solution.h"
+#include "helpers.h"
+#include "timerc.h"
 
 /*--------------------------------------------------------------
  *    Lower Triangular Matrix Inverse
- *    CPU Iterative, GPU MAT MULT
- *    Solves Lower Triangle System of Equations
-
+ *    CPU ITERATIVE, GPU MAT MULT
+ *    Run: Driver, depends on 3
  *    Author: Roger Wang
  *-------------------------------------------------------------- */
 
-// Helper Functions
-void printSubMat(double *a, int idx, int size, int n, const char *title) {
-    printf("%s\n", title);
-    for (int i = 0; i < size; ++i) {
-        for (int j = 0; j < size; ++j) {
-            int local_idx = idx + i * n + j;
-            printf("%5.2f ", a[local_idx]);
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
-
-void printMat(double *a, int n, const char *title) {
-    printf("%s\n", title);
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            printf("%5.2f ", a[i * n + j]);
-        }
-        printf("\n");
-    }
-    printf("\n\n");
-}
-
-void printVec(double *b, int n, const char *title) {
-    printf("%s\n", title);
-    for (int i = 0; i < n; i++) {
-        printf("%5.2f ", b[i]);
-    }
-    printf("\n");
-}
-
-double *initMat(int n) {
-    double *a = (double *)malloc(n * n * sizeof(double));
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            if (i >= j)
-                a[i * n + j] = i * n + j + 1;
-            else
-                a[i * n + j] = 0;
-        }
-    }
-    return a;
-}
-
-double *initVec(int n) {
-    double *b = (double *)malloc(n * sizeof(double));
-    for (int i = 0; i < n; i++) {
-        b[i] = i;
-    }
-    return b;
-}
-
-void copyMat(double *newA, double *a, int idx, int size, int n) {
-    for (int i = 0; i < size; ++i) {
-        for (int j = 0; j < size; ++j) {
-            int local_idx = idx + i * n + j;
-            a[local_idx] = newA[i * size + j];
-        }
-    }
-}
-
-// device kernel function for multMat parallel
-__global__ void multMat_kernel(double *a, int idx_1, int idx_2, int size, int n, double *res) {
-    int i = blockIdx.x;
-    int j = threadIdx.x;
-    res[i * size + j] = 0.0;
-    for (int k = 0; k < size; k++) {
-        res[i * size + j] += a[idx_1 + i * n + k] * a[idx_2 + k * n + j];
-    }
-    return;
-}
-
-// Parallel version
-void multMat(double *a, int idx_1, int idx_2, int size, int n, double *res) {
-    // device variables
-    double *a_d;
-    double *res_d;
-    cudaMalloc((void **)&a_d, size * size * sizeof(double));
-    cudaMalloc((void **)&res_d, size * size * sizeof(double));
-    cudaMemcpy(a_d, a, size * size * sizeof(double), cudaMemcpyHostToDevice);
-
-    // execute kernel
-    multMat_kernel<<<size, size>>>(a_d, idx_1, idx_2, size, n, res_d);
-    cudaDeviceSynchronize();
-
-    // copy and return calculations
-    cudaMemcpy(res, res_d, size * size * sizeof(double), cudaMemcpyDeviceToHost);
-
-    // free device memory
-    cudaFree(a_d);
-    cudaFree(res_d);
-    return;
-}
-
-void multMatVec(double *a, double *b, double *x, int n) {
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            x[i] += a[i * n + j] * b[j];
-        }
-    }
-}
-
-void checkInverse(double *a, double *a_inv, double *res, int n) {
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            res[i * n + j] = 0.0;
-            for (int k = 0; k < n; k++)
-                res[i * n + j] += a[i * n + k] * a_inv[k * n + j];
-        }
-    }
-}
-
-void addNegative(double *a, int idx, int size, int n) {
-    for (int i = 0; i < size; ++i) {
-        for (int j = 0; j < size; ++j) {
-            int local_idx = idx + i * n + j;
-            a[local_idx] = -1 * a[local_idx];
-        }
-    }
-}
-
-// Base Case 2x2 Inplace inversion
-__host__ __device__ void invertTwoByTwo(double *a, int idx, int n) {
-    int idx0 = idx;
-    int idx1 = idx + 1;
-    int idx2 = idx + n;
-    int idx3 = idx + n + 1;
-    double det = a[idx0] * a[idx3] - a[idx2] * a[idx1];
-    double temp;
-    temp = a[idx3];
-    a[idx3] = a[idx0];
-    a[idx0] = temp;
-    a[idx2] = -a[idx2];
-    a[idx1] = -a[idx1];
-
-    a[idx0] *= (1 / det);
-    a[idx1] *= (1 / det);
-    a[idx2] *= (1 / det);
-    a[idx3] *= (1 / det);
-}
-
-void invertHelper(double *a, int idx, int size, int n) {
+void invertHelperParallelMult(double *a, int idx, int size, int n) {
     // Base Case: Invert if a is a simple 2x2 matrix
     if (size == 2) {
         invertTwoByTwo(a, idx, n);
@@ -167,15 +27,14 @@ void invertHelper(double *a, int idx, int size, int n) {
 
     // Invert A21
     double *res = (double *)malloc(size * size * sizeof(double));
-    multMat(a, a22_idx, a21_idx, size / 2, n, res);  // A22 * A21
-    copyMat(res, a, a21_idx, size / 2, n);           // Put result into A21
-    multMat(a, a21_idx, a11_idx, size / 2, n, res);  // A21 * A11
-    copyMat(res, a, a21_idx, size / 2, n);           // Put result into A21
-    addNegative(a, a21_idx, size / 2, n);            // Add negative sign to A21
+    parallelMultMat(a, a22_idx, a21_idx, size / 2, n, res, 1);  // A22 * A21 & put result into A21
+    parallelMultMat(a, a21_idx, a11_idx, size / 2, n, res, 0);  // A21 * A11 & put result into A21
+    addNegative(a, a21_idx, size / 2, n);                       // Add negative sign to A21
+
     free(res);
 }
 
-void invertBottomUp(double *a, int n) {
+void invertBottomUpParallelMult(double *a, int n) {
     int total_iter = log2(n);
     for (int iter = 0; iter < total_iter; iter++) {
         int total_ops = pow(2, total_iter - iter - 1);
@@ -183,44 +42,35 @@ void invertBottomUp(double *a, int n) {
             int block_size = n / total_ops;
             int inv_idx = op_idx * ((n * n / total_ops) + block_size);
             // printf("Inv_idx: %d Block Size: %d\n", inv_idx, block_size);
-            invertHelper(a, inv_idx, block_size, n);
+            invertHelperParallelMult(a, inv_idx, block_size, n);
         }
     }
 }
 
-int main() {
-    float cpu_time;
-    int n = pow(2, 13);  // Matrix size: 2^x = n
+int cpu_iterative_gpu_mult(int inputSize, int check, int debug) {
+    printf("\nCPU Recursive, GPU Multiplication\n");
+    // Initialize
+    float gpu_time;
+    int n = pow(2, inputSize);  // Matrix size: 2^x = n
     double *a, *a_old, *b, *b_old;
-    double *x = (double *)malloc(n * sizeof(double));
     a = initMat(n);
     a_old = initMat(n);
+    copyMat(a_old, a, 0, n, n);
     b = initVec(n);
     b_old = initVec(n);
+    copyVec(b_old, b, n);
 
-    // printMat(a, n, "Initial Matrix:");
+    // Begin Inversion
+    gstart();
+    invertBottomUpParallelMult(a, n);
+    gend(&gpu_time);
+    printf("Total Time: %f\n", gpu_time);
+    // End Inversion
 
-    cstart();
-    invertBottomUp(a, n);
-    cend(&cpu_time);
-    printf("Time: %f\n", cpu_time);
-    // printMat(a, n, "Inverted Matrix:");
-
-    // Double check matrix inversion
-    // double *res = (double *)malloc(n * n * sizeof(double));
-    // checkInverse(a, a_old, res, n);
-    // printMat(res, n, "A * A^-1 (should be identity mat):");
-    // free(res);
-
-    // Get Solution
-    // multMatVec(a, b, x, n);
-    // printVec(b, n, "x: (Solution)");
     // Check Solution
-    // multMatVec(a, x, b, n);
-    // printVec(b, n, "b:");
-    // printVec(b_old, n, "test_b: (should equal b)");
+    if (check)
+        checkSolution(a, a_old, b_old, n, debug);
 
-    free(x);
     free(a);
     free(a_old);
     free(b);

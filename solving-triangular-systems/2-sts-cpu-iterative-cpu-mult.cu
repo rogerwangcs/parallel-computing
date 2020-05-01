@@ -2,13 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../timerc.h"
+#include "timerc.h"
 
 /*--------------------------------------------------------------
  *    Lower Triangular Matrix Inverse
  *    CPU Iterative, CPU MAT MULT
  *    Solves Lower Triangle System of Equations
-
+ *    Run: Driver
  *    Author: Roger Wang
  *-------------------------------------------------------------- */
 
