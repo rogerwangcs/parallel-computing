@@ -30,13 +30,14 @@ int main(int argc, char *argv[]) {
         debug = (int)strtol(argv[3], NULL, 12);
 
     int matrix_size = pow(2, n);
-    printf("Matrix Size: %d x %d, Elements: %d \nCheck Results? %d, Print Output? %d\n", matrix_size, matrix_size, matrix_size * matrix_size, check, debug);
+    printf("Matrix Size: %d x %d, Elements: %d \nCheck Results? %d, Print Output? %d\n",
+           matrix_size, matrix_size, matrix_size * matrix_size, check, debug);
 
     // Run Algorithms
     // cpu_recursive_cpu_mult(n, check, debug);
     // cpu_iterative_cpu_mult(n, check, debug);
     // cpu_recursive_gpu_mult(n, check, debug);
-    cpu_iterative_gpu_mult(n, check, debug);
+    // cpu_iterative_gpu_mult(n, check, debug);
     // gpu_iterative_cpu_mult(n, check, debug);
     gpu_iterative_gpu_mult(n, check, debug);
     return 0;

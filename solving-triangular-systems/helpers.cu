@@ -80,7 +80,8 @@ void copyVec(double *newB, double *b, int n) {
     }
 }
 
-__host__ __device__ void multSubMat(double *a_d, int idx_1, int idx_2, int size, int n, double *res_d) {
+__host__ __device__ void
+multSubMat(double *a_d, int idx_1, int idx_2, int size, int n, double *res_d) {
     for (int i = 0; i < size; i++) {
         for (int j = 0; j < size; j++) {
             res_d[i * size + j] = 0;

@@ -48,7 +48,7 @@ void invertBottomUpParallelMult(double *a, int n) {
 }
 
 int cpu_iterative_gpu_mult(int inputSize, int check, int debug) {
-    printf("\nCPU Recursive, GPU Multiplication\n");
+    printf("\nCPU Iterative, GPU Multiplication\n");
     // Initialize
     float gpu_time;
     int n = pow(2, inputSize);  // Matrix size: 2^x = n
