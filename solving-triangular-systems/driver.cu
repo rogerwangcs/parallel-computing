@@ -34,11 +34,11 @@ int main(int argc, char *argv[]) {
            matrix_size, matrix_size, matrix_size * matrix_size, check, debug);
 
     // Run Algorithms
-    // cpu_recursive_cpu_mult(n, check, debug);
-    // cpu_iterative_cpu_mult(n, check, debug);
-    // cpu_recursive_gpu_mult(n, check, debug);
-    // cpu_iterative_gpu_mult(n, check, debug);
-    // gpu_iterative_cpu_mult(n, check, debug);
+    cpu_recursive_cpu_mult(n, check, debug);
+    cpu_iterative_cpu_mult(n, check, debug);
+    cpu_recursive_gpu_mult(n, check, debug);
+    cpu_iterative_gpu_mult(n, check, debug);
+    gpu_iterative_cpu_mult(n, check, debug);
     gpu_iterative_gpu_mult(n, check, debug);
     return 0;
 }

@@ -1,0 +1,15 @@
+{
+  "files.associations": {
+    "*.js": "javascriptreact",
+    "config": "shellscript",
+    "chrono": "c",
+    "cmath": "c",
+    "*.cu": "c",
+    "array": "c",
+    "string_view": "c",
+    "initializer_list": "c",
+    "utility": "c",
+    "valarray": "c",
+    "thread": "c"
+  }
+}

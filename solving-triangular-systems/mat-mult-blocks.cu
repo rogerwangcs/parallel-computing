@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../timerc.h"
+#include "timerc.h"
 
 /*--------------------------------------------------------------
  *    Matrix Multiplication GPU with dim3 and blocks
@@ -75,18 +75,12 @@ void multMat(double *a, int idx_1, int idx_2, int size, int n, double *res) {
     }
 }
 
-__global__ void multMat_kernel(double *a, int idx_1, int idx_2, int size, int n, double *res) {
-    int i = gridDim.x * blockIdx.y + blockIdx.x;
-    int j = blockDim.x * threadIdx.y + threadIdx.x;
-    res[i * size + j] = 0.0;
-    for (int k = 0; k < size; k++) {
-        res[i * size + j] += a[idx_1 + i * n + k] * a[idx_2 + k * n + j];
-    }
-    return;
-}
 __global__ void multMat_kernel(double *a1, double *a2, int size, double *res) {
-    int i = gridDim.x * blockIdx.y + blockIdx.x;
-    int j = blockDim.x * threadIdx.y + threadIdx.x;
+    printf("[%d %d], (%d %d)\n", blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y);
+    int block_idx = gridDim.x * blockIdx.y + blockIdx.x + 1;
+    int i = blockIdx.x * blockDim.y + threadIdx.x;
+    int j = blockIdx.y * blockDim.x + threadIdx.y;
+    printf("(%d=== %d, %d)\n", block_idx, i, j);
     res[i * size + j] = 0.0;
     for (int k = 0; k < size; k++) {
         res[i * size + j] += a1[i * size + k] * a2[k * size + j];
@@ -94,7 +88,7 @@ __global__ void multMat_kernel(double *a1, double *a2, int size, double *res) {
     return;
 }
 
-void parallelMultMat(double *a, int idx_1, int idx_2, int size, int n, double *res, int copyToFirst) {
+void parallelMultMat(double *a, int idx_1, int idx_2, int size, int n, int copyToFirst) {
     // device variables
     double *a1_d, *a2_d, *res_d;
     gpuErrchk(cudaMalloc((void **)&a1_d, size * size * sizeof(double)));
@@ -112,9 +106,9 @@ void parallelMultMat(double *a, int idx_1, int idx_2, int size, int n, double *r
     // if there are more than 512 threads per block, increase blocks and cap at 512 threads
     dim3 threadsPerBlock(size, size);
     dim3 blocksPerGrid(1, 1);
-    if (size > 32) {
-        threadsPerBlock.x = 32;
-        threadsPerBlock.y = 32;
+    if (size > 1) {
+        threadsPerBlock.x = 1;
+        threadsPerBlock.y = 1;
         blocksPerGrid.x = ceil(double(size) / double(threadsPerBlock.x));
         blocksPerGrid.y = ceil(double(size) / double(threadsPerBlock.y));
     }
@@ -148,24 +142,16 @@ void parallelMultMat(double *a, int idx_1, int idx_2, int size, int n, double *r
 }
 
 int main() {
-    int n = pow(2, 11);  // Matrix size: 2^x = n
+    int n = pow(2, 3);  // Matrix size: 2^x = n
 
     // host variables
-    double *a, *a2, *res;
+    double *a;
     a = initMat(n);
-    a2 = initMat(n);
-    res = (double *)malloc(n * n * sizeof(double));
 
-    // printMat(a, n, "A:");
-    // multMatParallel(a, 0, 0, n / 2, n, res);
-    // printMat(res, n / 2, "Res:");
-
-    // printMat(a, n, "A:");
-    parallelMultMat(a, 0, 0, n, n, res, 0);
-    // printMat(res, n, "Res:");
+    printMat(a, n, "A:");
+    parallelMultMat(a, 0, 0, n / 2, n, 0);
+    printMat(a, n, "A:");
 
     free(a);
-    free(a2);
-    free(res);
     return 0;
 }

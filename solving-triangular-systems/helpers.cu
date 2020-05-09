@@ -3,6 +3,15 @@
 
 #include "helpers.h"
 
+#define gpuErrchk(ans) \
+    { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true) {
+    if (code != cudaSuccess) {
+        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort) exit(code);
+    }
+}
+
 __host__ __device__ void printSubMat(double *a, int idx, int size, int n, const char *title) {
     printf("%s\n", title);
     for (int i = 0; i < size; ++i) {
